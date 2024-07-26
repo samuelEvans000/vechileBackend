@@ -8,6 +8,10 @@ const port = 3001;
 app.use(cors());
 app.use(express.json());
 
+const NodeCache = require("node-cache");
+const cache = new NodeCache({ stdTTL: 100 });
+
+
 const defaultLocation = { "latitude": 17.385044, "longitude": 78.486671 };
 
 let routes = [];
@@ -28,7 +32,13 @@ let routeData = polyline.decode(encodedPolyline).map(point => ({
 }));
 
 app.get('/api/vehicle', (req, res) => {
-  res.json({ defaultLocation, routeData });
+  const cachedData = cache.get('vehicleData');
+  if (cachedData) {
+    return res.json(cachedData);
+  }
+  const data = { defaultLocation, routeData };
+  cache.set('vehicleData', data);
+  res.json(data);
 });
 
 app.post('/api/select-route', (req, res) => {
@@ -40,6 +50,7 @@ app.post('/api/select-route', (req, res) => {
       latitude: point[0],
       longitude: point[1]
     }));
+    cache.del('vehicleData');
     console.log("Route updated to: ", selectedRoute);
     res.json({ message: "Route updated successfully" });
   } else {
